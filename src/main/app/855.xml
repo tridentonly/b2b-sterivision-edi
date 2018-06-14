@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
+  
+    <flow name="850">
+        <file:inbound-endpoint path="D:\Upwork\hemanth\850\ip" connector-ref="File" pollingFrequency="9999999" responseTimeout="10000" doc:name="Read 850"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+%namespace ns0 http://RMS_EDI_schemas.RMS850EDI
+---
+[{
+	//Id: payload.ns0#RMSEDI850.@DocumentId as :string,
+	Order_Date__c: payload.ns0#RMSEDI850.ST.BEG.@Date_05 as :date {format: "yyyyMMdd"},
+	Purchase_Order__c: payload.ns0#RMSEDI850.ST.BEG.@PurchaseOrderNumber_03
+}]]]></dw:set-payload>
+            <dw:set-variable variableName="originalPayload"><![CDATA[%dw 1.0
+%output application/xml
+---
+payload]]></dw:set-variable>
+        </dw:transform-message>
+        <sfdc:create config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order__c" doc:name="Salesforce-WO">
+            <sfdc:objects ref="#[payload]"/>
+        </sfdc:create>
+        <set-variable variableName="orderId" value="#[payload[0].Id]" doc:name="Variable"/>
+        <set-payload value="#[flowVars.originalPayload]" doc:name="Set Payload"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="e0e4e56e-8cb5-4099-93d7-dcd1dcd28bbf">
+            <dw:input-payload mimeType="application/xml"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+%namespace ns0 http://RMS_EDI_schemas.RMS850EDI
+---
+[{
+	// Name: payload.ns0#RMSEDI850.PO1.@ProdServiceID_07,
+	SVMXC__Service_Order__c: flowVars.orderId,
+	SVMXC__Billable_Line_Price__c: payload.ns0#RMSEDI850.PO1.@UnitPrice_04 as :string,
+	SVMXC__Billable_Quantity__c: payload.ns0#RMSEDI850.PO1.@QuantityOrdered_02,
+	Sterivision_Contract_Number__c: payload.ns0#RMSEDI850.PO1.REF.@ReferenceID_02,
+	Billing_Unit__c: payload.ns0#RMSEDI850.PO1.@UnitBasisforMeasure_03
+// Line__c: payload.ns0#RMSEDI850.PO1.@ProdServiceID_07 as :number
+}]]]></dw:set-payload>
+        </dw:transform-message>
+        <sfdc:create config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order_Line__c" doc:name="Salesforce-WD">
+            <sfdc:objects ref="#[payload]"/>
+        </sfdc:create>
+
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <choice doc:name="Choice">
+            <when expression="#[payload[0].status=='true']">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+[{
+	documentId : flowVars.originalPayload[0].Id,
+	status: true,
+	error : null
+	
+}]]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <set-variable variableName="msg" value="#[payload[0].errors.toString()]" doc:name="Variable"/>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+[{
+	documentId : flowVars.originalPayload[0].Id,
+	status: false,
+	error : flowVars.msg
+	
+}]]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+        <file:outbound-endpoint path="D:\Upwork\hemanth\850\op" outputPattern="#[message.inboundProperties.originalFileName].csv" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+        <flow-ref name="855-flow" doc:name="Flow Reference"/>
+    </flow>
+    <sub-flow name="855-flow">
+        <flow-ref name="WorkOrderSub_Flow1" doc:name="Flow Reference"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="b1cabf11-9ddb-4d04-aab1-7697b52c0251">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://RMS_EDI_schemas.RMS850EDI
+---
+{
+	CommonEDIEnvelope @(Relationship: null , Source: 'STERIVISION' , ExtractDate: now): {
+		RMSEDI855 @(EDI855Version: null , originator: null , client: null , service: null , context: null , mode: null , SendRoutingID: null , ReceiveRoutingID: null , RelationshipID: null , DocumentId: null , MapVersion: null , AppTransactionID: null , IdField1: null , IdField2: null , IdField3: null , IdField4: null): {
+			ST @(TransSetIdentifierCode: null , EDIFormat: 4010): {
+				BAK @(RefIdentification_08: flowVars.woResult[0].Name, OrderDate_04: flowVars.originalPayload.ns0#RMSEDI850.ST.BEG.@Date_05 , PurchaseOrderNumber_03: null , AcknowledgmentType_02: ('AC' when (flowVars.woResult[0].Name != null) otherwise 'RD') , TranSetPurposeCode_01: '00' , EdiUniqueId_00: null): {},
+				PER @(CommNumber_04: flowVars.originalPayload.ns0#RMSEDI850.ST.PER.@CommunicationNumber_04 , CommNumberQual_03: flowVars.originalPayload.ns0#RMSEDI850.ST.PER.@CommunicationNumberQual_03 , Name_02: flowVars.originalPayload.ns0#RMSEDI850.ST.PER.@Name_02 , ContactFunctionCode_01: 'OC'): {},
+				Ref_Identifier_N9 @(Ref_ID_02: 'E' , Ref_ID_Qualifier_01: '43'): {},
+				PO1 @(ProdServiceID_07: null , ProdServiceIDQualifier_06: 'SW' , UnitBasisforMeasure_03: 'EA' , QuantityOrdered_02: flowVars.originalPayload.ns0#RMSEDI850.PO1.@QuantityOrdered_02 , AssignedIdentification_01: payload[0].Name , EdiUniqueId_00: null): {
+					TD5 @(Routing_05: 'O' , TransMethodCode_04: 'EZ'): {},
+					ACK_detail @(DateTime_05: null , DateTimeQual_04: null , UnitBasisMeasureCode_03: 'EA' , Quantity_02: null , LIneItemStatusCode_01: null): {},
+					ConsigneeInfo_Detail: {
+						N1 @(IdentificationCode_04: null , IdentificationCodeQualifier_03: null , Name_02:  flowVars.woResult[0].Name , EntryIdentifierCode_01: 'ST'): {},
+						N2 @(SecondaryName_1: flowVars.originalPayload.ns0#RMSEDI850.PO1.ConsigneeInfo_Detail.N2.@SecondaryName_1[0]): {},
+						N3 @(Address1_01: flowVars.originalPayload.ns0#RMSEDI850.PO1.ConsigneeInfo_Detail.N3.@Address1_01): {},
+						N4 @(PostalCode_03: flowVars.originalPayload.ns0#RMSEDI850.PO1.ConsigneeInfo_Detail.N4.@City_01 , StateProvince_02: flowVars.originalPayload.ns0#RMSEDI850.PO1.ConsigneeInfo_Detail.N4.@StateProvince_02 , City_01: flowVars.originalPayload.ns0#RMSEDI850.PO1.ConsigneeInfo_Detail.N4.@PostalCode_03): {},
+						REF @(RefIndentification_02: null , RefIdentificationQual_01: null): {}
+					}
+				}
+			}
+		}
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger level="INFO" doc:name="Logger"/>
+        <file:outbound-endpoint path="D:\Upwork\hemanth\855\op files" outputPattern="855_#[message.inboundProperties.originalFileName].xml" responseTimeout="10000" doc:name="File"/>
+    </sub-flow>
+    <sub-flow name="WorkOrderSub_Flow1">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:select Name , Id from SVMXC__Service_Order__c where Id='#[flowVars.orderId]'" doc:name="Salesforce"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="woResult" value="#[payload]" doc:name="Variable"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:select Name from SVMXC__Service_Order_Line__c where SVMXC__Service_Order__c='#[payload[0][&quot;Id&quot;]]'" doc:name="Salesforce"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+
+
+</mule>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
+    <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="5000" doc:name="File" outputAppend="true"/>
+    <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
+    <quartz:connector name="Quartz" validateConnections="true" doc:name="Quartz"/>
+    <flow name="810Flow">
+        <poll doc:name="Poll">
+            <fixed-frequency-scheduler frequency="1" timeUnit="DAYS"/>
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,Name,Invoice_Date__c,Invoice__c,Total__c,Work_Order__c FROM Invoice__c" doc:name="Salesforce- Invoice"/>
+        </poll>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="invoiceResult" value="#[payload]" doc:name="Variable -Invoice"/>
+        <logger message="after first salesforce :: #[payload]" level="INFO" doc:name="Logger"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Invoice_Detail_Key__c,work_detail__c,Invoice__c,Price__c,Quantity__c FROM Invoice_Detail__c WHERE Invoice__c = '#[payload[0].Id]'" doc:name="Salesforce - Invoice Details"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="invoiceDetailsResult" value="#[payload]" doc:name="Variable-Invoice Details"/>
+        <flow-ref name="get_work_details" doc:name="Flow Reference"/>
+        <logger message="payload ----------&gt; #[payload]" level="INFO" doc:name="Logger"/>
+        <flow-ref name="get_work_order_name" doc:name="Flow Reference"/>
+        <set-variable variableName="workOrderResult" value="#[payload]" doc:name="Variable"/>
+        <flow-ref name="get_product_name" doc:name="Flow Reference"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="6bd43c62-5b13-4319-a3b7-97655edafa90">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+{
+	CommonEDIEnvelope @( ExtractDate : now , Relationship: null , Source: 'Sterivision'): {
+		RMSEDI810 @(EDI810Version: null , originator: null , client: null , service: null , context: null , mode: null , SendRoutingID: null , ReceiveRoutingID: null , RelationshipID: null , DocumentId: null , MapVersion: null , AppTransactionID: null , IdField1: null , IdField2: null , IdField3: null , IdField4: null): {
+			ST @(EDIFormat: 4010 , TransSetIdentifierCode: null): {
+				BeginningSegmentInvoice_BIG @( Date_01: flowVars.invoiceResult[0].Invoice_Date__c , InvoiceNumber_02: flowVars.invoiceResult[0].Name , Date_03: flowVars.invoiceResult[0].Invoice_Date__c , PurchaseOrderNumber_04: null) : {
+					
+				},
+				ReferenceIdentification_REF @(ReferenceIdentificationQualifier_01: 'V' , ReferenceIdentficiation_02: flowVars.workOrderResult[0].Name): {},
+				Detail: {
+					BaselineItemData_IT1 @(AssignedIdentification_01: flowVars.workDetailResult[0].Name , Quantity_02: flowVars.invoiceDetailsResult[0].Quantity__c , UnitBasisMeasurement_03: 'EA' , UnitPrice_04: null , ProdServiceIDQualifier_06: 'SW' , ProdServiceID_07: payload[0].Name , ProdServiceIDQualifier_08: 'PL' , ProdServiceID_09: flowVars.workDetailResult[0].Name): {},
+					ReferenceIdentification_REF @(ReferenceIdentificationQualifier_01: 'CT' , ReferenceIdentficiation_02: flowVars.workDetailResult[0].Sterivision_Contract_Number__c): {}
+				},
+				Summary: {
+					TotalMonetaryValueSummary_TDS @(Amount_01: flowVars.invoiceResult[0].Total__c): {}
+				}
+			}
+		}
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <file:outbound-endpoint path="C:\Users\Hemanth.Gadde\Desktop\Mass\EDI Docs\output" outputPattern="810_stericycle_output.xml" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+    </flow>
+    <sub-flow name="get_work_details">
+        <logger level="INFO" doc:name="Logger"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Name,Sterivision_Contract_Number__c,SVMXC__Product__c FROM SVMXC__Service_Order_Line__c WHERE Id = '#[flowVars.invoiceDetailsResult[0].Work_Detail__c]'" doc:name="Salesforce - Work Details"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="workDetailResult" value="#[payload]" doc:name="Variable"/>
+
+    </sub-flow>
+    <sub-flow name="get_product_name">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Name FROM Product2 WHERE Id = '#[flowVars.workDetailResult[0].SVMXC__Product__c]'" doc:name="Salesforce"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+    <sub-flow name="get_work_order_name">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Name FROM SVMXC__Service_Order__c WHERE Id='#[flowVars.invoiceResult[0].Work_Order__c]'" doc:name="Salesforce"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+
+</mule>
