@@ -11,7 +11,7 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
     <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="5000" doc:name="File" outputAppend="true"/>
-    <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
+    <sfdc:config name="Salesforce__Basic_Authentication" username="${salesforce-username}" password="${salesforce-password}" url="${salesforce-url}" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
     <quartz:connector name="Quartz" validateConnections="true" doc:name="Quartz"/>
     <flow name="810Flow">
         <poll doc:name="Poll">
@@ -75,7 +75,7 @@ payload]]></dw:set-payload>
 	}
 }]]></dw:set-payload>
         </dw:transform-message>
-        <file:outbound-endpoint path="C:\Users\Hemanth.Gadde\Desktop\Mass\EDI Docs\output" outputPattern="810_stericycle_output.xml" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+        <file:outbound-endpoint path="${fileOutputPath}" outputPattern="810_stericycle_output.xml" connector-ref="File" responseTimeout="10000" doc:name="File"/>
     </flow>
     <sub-flow name="get_work_details">
         <logger level="INFO" doc:name="Logger"/>

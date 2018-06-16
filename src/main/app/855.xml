@@ -12,7 +12,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
   
     <flow name="850">
-        <file:inbound-endpoint path="D:\Upwork\hemanth\850\ip" connector-ref="File" pollingFrequency="9999999" responseTimeout="10000" doc:name="Read 850"/>
+        <file:inbound-endpoint path="${fileInputPath}" connector-ref="File" pollingFrequency="9999999" responseTimeout="10000" doc:name="Read 850"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
@@ -94,7 +94,7 @@ payload]]></dw:set-payload>
                 </dw:transform-message>
             </otherwise>
         </choice>
-        <file:outbound-endpoint path="D:\Upwork\hemanth\850\op" outputPattern="#[message.inboundProperties.originalFileName].csv" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+        <file:outbound-endpoint path="${fileOutputPath}" outputPattern="#[message.inboundProperties.originalFileName].csv" connector-ref="File" responseTimeout="10000" doc:name="File"/>
         <flow-ref name="855-flow" doc:name="Flow Reference"/>
     </flow>
     <sub-flow name="855-flow">
@@ -128,7 +128,7 @@ payload]]></dw:set-payload>
 }]]></dw:set-payload>
         </dw:transform-message>
         <logger level="INFO" doc:name="Logger"/>
-        <file:outbound-endpoint path="D:\Upwork\hemanth\855\op files" outputPattern="855_#[message.inboundProperties.originalFileName].xml" responseTimeout="10000" doc:name="File"/>
+        <file:outbound-endpoint path="${fileOutputPath}" outputPattern="855_#[message.inboundProperties.originalFileName].xml" responseTimeout="10000" doc:name="File"/>
     </sub-flow>
     <sub-flow name="WorkOrderSub_Flow1">
         <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:select Name , Id from SVMXC__Service_Order__c where Id='#[flowVars.orderId]'" doc:name="Salesforce"/>
