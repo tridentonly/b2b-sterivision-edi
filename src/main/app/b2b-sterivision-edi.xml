@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:context="http://www.springframework.org/schema/context" xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -9,10 +9,12 @@ http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
-http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd">
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd">
     <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="5000" doc:name="File" outputAppend="true"/>
     <sfdc:config name="Salesforce__Basic_Authentication" username="${salesforce-username}" password="${salesforce-password}" url="${salesforce-url}" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
     <quartz:connector name="Quartz" validateConnections="true" doc:name="Quartz"/>
+    <context:property-placeholder location="sterivision-edi-${env}.properties"/>
     <flow name="810Flow">
         <poll doc:name="Poll">
             <fixed-frequency-scheduler frequency="1" timeUnit="DAYS"/>
